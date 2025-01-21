@@ -3073,6 +3073,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
+
+	log.Printf("Listening on %s", listenAddr)
+
 	s := grpc.NewServer()
 	pb.RegisterDDDParserServer(s, &server{
 		statsdClient: statsdClient,
@@ -3080,4 +3083,5 @@ func main() {
 	if err := s.Serve(lis); err != nil {
 		log.Fatalf("error: failed to serve: %v", err)
 	}
+
 }
