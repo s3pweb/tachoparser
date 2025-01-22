@@ -1,0 +1,36 @@
+version: '3.4'
+
+networks:
+  proxy:
+    external: true
+
+services:
+  s3pweb-tachoparser-dddhttp:
+    image: s3pweb/tachoparser-dddhttp:0.0.1
+
+    networks:
+      - proxy
+
+    deploy:
+      mode: replicated
+      replicas: 2
+      placement:
+        constraints: [ node.labels.backend == true ]
+
+      restart_policy:
+        condition: any
+        delay: 5s
+        window: 120s
+
+      resources:
+        limits:
+          cpus: '0.80'
+          memory: 500M
+
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: start-first
+
+    environment:
+      ENV: production
