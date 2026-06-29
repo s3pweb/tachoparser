@@ -56,7 +56,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("error: could not marshal card data: %s", err)
 		}
-		fmt.Printf(string(card))
+		fmt.Print(string(card))
 	}
 	if *vu {
 		req := &pb.ParseVuRequest{Data: data}
@@ -69,6 +69,6 @@ func main() {
 		if err != nil {
 			log.Fatalf("error: could not marshal vu data: %s", err)
 		}
-		fmt.Printf(string(vu))
+		fmt.Print(string(vu))
 	}
 }
