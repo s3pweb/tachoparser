@@ -38,6 +38,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("error: could not dial: %s", err)
 	}
+	defer conn.Close()
 
 	data, err := ioutil.ReadAll(os.Stdin)
 	if err != nil {

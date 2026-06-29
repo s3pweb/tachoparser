@@ -20,17 +20,14 @@ import (
 	"github.com/traconiq/tachoparser/pkg/decoder"
 	pb "github.com/traconiq/tachoparser/pkg/proto"
 	"google.golang.org/grpc"
-	"gopkg.in/alexcesaro/statsd.v2"
 )
 
 var (
-	listen     = flag.String("listen", ":50055", "Listen address for grpc service")
-	statsdAddr = flag.String("statsd", "", "The address of the statsd server to use")
+	listen = flag.String("listen", ":50055", "Listen address for grpc service")
 )
 
 type server struct {
 	pb.UnimplementedDDDParserServer
-	statsdClient *statsd.Client
 }
 
 // global lock. only 1 parsing at a time...
@@ -3060,23 +3057,12 @@ func main() {
 		}
 	}
 
-	var statsdClient *statsd.Client
-	if *statsdAddr != "" {
-		var err error
-		statsdClient, err = statsd.New(statsd.Address(*statsdAddr))
-		if err != nil {
-			log.Printf("error: creating statsd client (ignored)")
-		}
-	}
-
 	lis, err := net.Listen("tcp", listenAddr)
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
 	s := grpc.NewServer()
-	pb.RegisterDDDParserServer(s, &server{
-		statsdClient: statsdClient,
-	})
+	pb.RegisterDDDParserServer(s, &server{})
 	if err := s.Serve(lis); err != nil {
 		log.Fatalf("error: failed to serve: %v", err)
 	}

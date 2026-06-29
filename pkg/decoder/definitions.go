@@ -1586,16 +1586,18 @@ func (c *CertificateFirstGen) Decode() error {
 	if ca, ok := PKsFirstGen[CARPrime]; ok {
 		SrPrime := ca.Perform(data[0:128])
 		// Sr' has the structure 6A || Cr' || H' || BC
+		// note: Perform returns big.Int.Bytes(), which strips leading zero bytes; the
+		// len==128 check below relies on a valid block starting with the non-zero 0x6a byte
 		if len(SrPrime) == 128 && SrPrime[0] == 0x6a && SrPrime[127] == 0xbc {
 			CrPrime := SrPrime[1 : 1+106]
 			HPrime := SrPrime[1+106 : 1+106+20]
 			CPrime := append(CrPrime, CnPrime...)
+			if len(CPrime) != 164 {
+				return errors.New("certificate length mismatch")
+			}
 			hash := sha1.Sum(CPrime)
 			if !reflect.DeepEqual(HPrime, hash[:]) {
 				return errors.New("certificate content hash mismatch")
-			}
-			if len(CPrime) != 164 {
-				return errors.New("certificate length mismatch")
 			}
 			// C' has the structure
 			// 0        CPI Certificate Profile Identifier (fix 0x01)
