@@ -8,14 +8,14 @@ import (
 	"log"
 	"os"
 
-	pb "github.com/kyburz-switzerland-ag/tachoparser/pkg/proto"
+	pb "github.com/traconiq/tachoparser/pkg/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
 /**
- * author: tr <thorsten.riess@kyburz-switzerland.ch>
+ * author: tr <thorsten.riess@traconiq.ch>
  */
 
 var (
@@ -38,6 +38,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("error: could not dial: %s", err)
 	}
+	defer conn.Close()
 
 	data, err := ioutil.ReadAll(os.Stdin)
 	if err != nil {
@@ -56,7 +57,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("error: could not marshal card data: %s", err)
 		}
-		fmt.Printf(string(card))
+		fmt.Print(string(card))
 	}
 	if *vu {
 		req := &pb.ParseVuRequest{Data: data}
@@ -69,6 +70,6 @@ func main() {
 		if err != nil {
 			log.Fatalf("error: could not marshal vu data: %s", err)
 		}
-		fmt.Printf(string(vu))
+		fmt.Print(string(vu))
 	}
 }

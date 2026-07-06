@@ -12,12 +12,12 @@ For proper data verification, the public keys (root ca and member states) are re
 The Python scripts `pks1/dl_all_pks1.py` and `pks2/dl_all_pks2.py` download and rename all available public keys, first generation (digital tachograph) public keys are expected to be in `pks1`, second generation (smart tachograph) public keys are expected in `pks2`.
 
 ```bash
-> cd pks1
-pks1> ./dl_all_pks1.py
-pks1> cd ..
-> cd pks2
-pks2> ./dl_all_pks2.py
-pks2> cd ..
+cd pks1
+./dl_all_pks1.py
+cd ..
+cd pks2
+./dl_all_pks2.py
+cd ..
 ```
 
 Alternatively, they can be downloaded manually from [ERCA certificates DT](https://dtc.jrc.ec.europa.eu/dtc_public_key_certificates_dt.php.html) and [ERCA certificates ST](https://dtc.jrc.ec.europa.eu/dtc_public_key_certificates_st.php.html), but have to be renamed to their certificate reference (resp. unzipped in case of the root certificate) in this case.
@@ -26,16 +26,16 @@ Alternatively, they can be downloaded manually from [ERCA certificates DT](https
 
 In the root directory, execute
 ```bash
-> ./build-binaries-prod.sh
+./build-binaries-prod.sh
 ```
 
 Alternatively, execute
 ```bash
-> go mod vendor
+go mod vendor
 ```
 And then change the working directory to `cmd/dddparser` (or any of the other subdirectories of `cmd/`) and execute
 ```bash
-> go build .
+go build .
 ```
 
 The project aims to have as little external dependencies as possible, currently there are the following external dependencies (most of them are actually not strictly required and could be removed with little effort):
@@ -65,14 +65,14 @@ The Dockerfile in the main directory will create a docker image containing only 
 There are unit tests for decoding different data types.
 To run, type
 ```bash
-> go test
+go test
 ```
 
 ### INSTALLATION
 
-Put the executable `cmds/dddparser/dddparser` to a location that is in your `PATH`, f.e.
+Put the executable `cmd/dddparser/dddparser` to a location that is in your `PATH`, f.e.
 ```bash
-> sudo cp cmds/dddparser/dddparser /usr/local/bin
+sudo cp cmd/dddparser/dddparser /usr/local/bin
 ```
 
 ## USAGE
@@ -83,7 +83,7 @@ The executable `dddparser` reads raw data from `STDIN` and outputs JSON data to 
 
 Example:
 ```bash
-> cat tachodata.ddd | ./dddparser -vu
+cat tachodata.ddd | ./dddparser -vu
 ```
 
 The executable `dddsimple` reads raw data from `STDIN` and outputs JSON data to `STDOUT`, warnings and errors are sent to `STDERR`.
@@ -92,23 +92,23 @@ The executable `dddsimple` reads raw data from `STDIN` and outputs JSON data to 
 
 Example:
 ```bash
-> cat driverdata.ddd | ./dddsimple -card
+cat driverdata.ddd | ./dddsimple -card
 ```
 
 The executable `dddserver` starts a gRPC server which listens on port 50055 for incoming requests. The server can be started with the following command:
 ```bash
-> ./dddserver
+./dddserver
 ```
 To change the port, use the `-listen` option:
 ```bash
-> ./dddserver -listen :50056
+./dddserver -listen :50056
 ```
 
 ## Tipps and Tricks
 
 For output formatting and further processing, [jq](https://stedolan.github.io/jq/) is recommended, f.e.:
 ```bash
-> cat tachodata.ddd | dddparser -vu | jq . | less
+cat tachodata.ddd | dddparser -vu | jq . | less
 ```
 
 ## TODO

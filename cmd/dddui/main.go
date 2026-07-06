@@ -5,8 +5,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/kyburz-switzerland-ag/tachoparser/pkg/decoder"
 	"github.com/ncruces/zenity"
+	"github.com/traconiq/tachoparser/pkg/decoder"
 )
 
 const defaultPath = ``
@@ -17,7 +17,7 @@ func main() {
 		zenity.Title("Datei auswählen..."),
 		zenity.Filename(defaultPath),
 		zenity.FileFilters{
-			{"Tacho Dateien", []string{"*.ddd"}, true},
+			{Name: "Tacho Dateien", Patterns: []string{"*.ddd"}, CaseFold: true},
 		})
 	if err != nil {
 		log.Fatalf("error: could not get input file: %v", err)
@@ -28,7 +28,7 @@ func main() {
 		zenity.ConfirmOverwrite(),
 		zenity.Filename(defaultName),
 		zenity.FileFilters{
-			{"JSON Dateien", []string{"*.json"}, true},
+			{Name: "JSON Dateien", Patterns: []string{"*.json"}, CaseFold: true},
 		})
 	if err != nil {
 		log.Fatalf("error: could not get output file: %v", err)

@@ -16,21 +16,18 @@ import (
 
 	consul "github.com/hashicorp/consul/api"
 	"github.com/hashicorp/go-sockaddr/template"
-	_ "github.com/kyburz-switzerland-ag/tachoparser/internal/pkg/certificates"
-	"github.com/kyburz-switzerland-ag/tachoparser/pkg/decoder"
-	pb "github.com/kyburz-switzerland-ag/tachoparser/pkg/proto"
+	_ "github.com/traconiq/tachoparser/internal/pkg/certificates"
+	"github.com/traconiq/tachoparser/pkg/decoder"
+	pb "github.com/traconiq/tachoparser/pkg/proto"
 	"google.golang.org/grpc"
-	"gopkg.in/alexcesaro/statsd.v2"
 )
 
 var (
-	listen     = flag.String("listen", ":50055", "Listen address for grpc service")
-	statsdAddr = flag.String("statsd", "", "The address of the statsd server to use")
+	listen = flag.String("listen", ":50055", "Listen address for grpc service")
 )
 
 type server struct {
 	pb.UnimplementedDDDParserServer
-	statsdClient *statsd.Client
 }
 
 // global lock. only 1 parsing at a time...
@@ -1374,7 +1371,7 @@ func (s *server) ParseVu(ctx context.Context, req *pb.ParseVuRequest) (*pb.Parse
 				Signature: rec.Signature,
 			}
 		}
-		vuEventsAndFaults2[i] = &pb.VuEventsAndFaultsSecondGen{
+		vuEventsAndFaults2V2[i] = &pb.VuEventsAndFaultsSecondGenV2{
 			Verified: r.Verified,
 			VuFaultRecordArray: &pb.VuFaultRecordArray{
 				RecordType:  uint32(r.VuFaultRecordArray.RecordType),
@@ -3060,15 +3057,6 @@ func main() {
 		}
 	}
 
-	var statsdClient *statsd.Client
-	if *statsdAddr != "" {
-		var err error
-		statsdClient, err = statsd.New(statsd.Address(*statsdAddr))
-		if err != nil {
-			log.Printf("error: creating statsd client (ignored)")
-		}
-	}
-
 	lis, err := net.Listen("tcp", listenAddr)
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
@@ -3077,9 +3065,7 @@ func main() {
 	log.Printf("Listening on %s", listenAddr)
 
 	s := grpc.NewServer()
-	pb.RegisterDDDParserServer(s, &server{
-		statsdClient: statsdClient,
-	})
+	pb.RegisterDDDParserServer(s, &server{})
 	if err := s.Serve(lis); err != nil {
 		log.Fatalf("error: failed to serve: %v", err)
 	}
