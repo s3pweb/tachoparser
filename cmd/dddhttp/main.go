@@ -9,6 +9,7 @@ import (
 	"net/http"
 
 	"github.com/kyburz-switzerland-ag/tachoparser/pkg/decoder"
+	"github.com/kyburz-switzerland-ag/tachoparser/pkg/simple"
 )
 
 func uploadHandler(w http.ResponseWriter, r *http.Request) {
@@ -87,9 +88,86 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(jsonData)
 }
 
+// infoHandler returns only the key identifiers of an uploaded file: the driver
+// card number (for a "card" file) or the vehicle registration (for a "vu"
+// file). It uses the lightweight byte-matching parser in pkg/simple, so it does
+// not need the ERCA certificates and does not verify signatures.
+func infoHandler(w http.ResponseWriter, r *http.Request) {
+
+	log.Println("Received info request")
+
+	if r.Method != "POST" {
+		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+		return
+	}
+
+	format := r.FormValue("format")
+	if format != "card" && format != "vu" {
+		log.Printf("Invalid format: %s", format)
+		http.Error(w, "Invalid format", http.StatusBadRequest)
+		return
+	}
+
+	file, _, err := r.FormFile("file")
+	if err != nil {
+		http.Error(w, "Error retrieving the file", http.StatusInternalServerError)
+		return
+	}
+	defer file.Close()
+
+	data, err := io.ReadAll(file)
+	if err != nil {
+		http.Error(w, "Error reading the file", http.StatusInternalServerError)
+		return
+	}
+
+	log.Printf("Received %s file with %d bytes", format, len(data))
+
+	var result map[string]string
+	if format == "card" {
+		cardNo, firstName, lastName, err := simple.CardExtractCardNumberAndDriverName(data)
+		if err != nil {
+			log.Printf("could not extract card info: %v", err)
+			http.Error(w, "Could not extract card info", http.StatusUnprocessableEntity)
+			return
+		}
+		result = map[string]string{
+			"cardNumber": cardNo,
+			"firstName":  firstName,
+			"lastName":   lastName,
+		}
+	} else {
+		idNo, regNo, err := simple.VuExtractIdentificationNumberAndRegistrationNumber(data)
+		if err != nil {
+			log.Printf("could not extract vehicle info: %v", err)
+			http.Error(w, "Could not extract vehicle info", http.StatusUnprocessableEntity)
+			return
+		}
+		result = map[string]string{
+			"registrationNumber":   regNo,
+			"identificationNumber": idNo,
+		}
+	}
+
+	jsonData, err := json.Marshal(result)
+	if err != nil {
+		http.Error(w, "Could not marshal response", http.StatusInternalServerError)
+		return
+	}
+
+	log.Println("Sending response")
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(jsonData)
+}
+
 func main() {
 
 	// http.HandleFunc("/upload", uploadHandler)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/info", infoHandler) // returns card number / vehicle registration only
+	mux.HandleFunc("/", uploadHandler)   // full decode (existing behaviour; matches any other path)
+
 	log.Println("Starting server on :8080")
 	// if err := http.ListenAndServe(":8080", nil); err != nil {
 	// 	log.Fatalf("Could not start server: %s\n", err.Error())
@@ -97,7 +175,7 @@ func main() {
 
 	srv := &http.Server{
 		Addr:    ":8080",
-		Handler: http.HandlerFunc(uploadHandler),
+		Handler: mux,
 
 		ReadTimeout:       5 * time.Second,
 		WriteTimeout:      10 * time.Second,

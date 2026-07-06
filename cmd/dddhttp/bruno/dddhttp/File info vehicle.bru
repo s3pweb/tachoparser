@@ -1,0 +1,16 @@
+meta {
+  name: File info vehicle
+  type: http
+  seq: 5
+}
+
+post {
+  url: http://localhost:8080/info
+  body: multipartForm
+  auth: none
+}
+
+body:multipart-form {
+  format: vu
+  file: @file()
+}
