@@ -1,0 +1,16 @@
+meta {
+  name: File info driver
+  type: http
+  seq: 4
+}
+
+post {
+  url: http://localhost:8080/info
+  body: multipartForm
+  auth: none
+}
+
+body:multipart-form {
+  format: card
+  file: @file()
+}

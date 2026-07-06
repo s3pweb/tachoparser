@@ -6,7 +6,7 @@ CMD_NAME = dddhttp
 
 # Docker image name and tag
 IMAGE_NAME = $(COMPANY)/tachoparser-$(CMD_NAME)
-IMAGE_TAG = 0.0.1
+IMAGE_TAG = 0.0.2
 
 # Build docker image for the platform linux/amd64
 .PHONY: docker.build
