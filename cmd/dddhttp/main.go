@@ -8,7 +8,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/kyburz-switzerland-ag/tachoparser/pkg/decoder"
+	"github.com/traconiq/tachoparser/pkg/decoder"
 )
 
 func uploadHandler(w http.ResponseWriter, r *http.Request) {
