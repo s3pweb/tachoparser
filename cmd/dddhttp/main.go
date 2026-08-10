@@ -54,38 +54,64 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("Received file with %d bytes", len(data))
 
-	var jsonData []byte
-
-	if card {
-		log.Printf("Try to use the card decoder")
-		var err error
-		var c decoder.Card
-		_, err = decoder.UnmarshalTLV(data, &c)
-		if err != nil {
-			log.Fatalf("error: could not parse card: %v", err)
-		}
-		jsonData, err = json.Marshal(c)
-		if err != nil {
-			log.Fatalf("error: could not marshal card: %v", err)
-		}
-	} else {
-		log.Printf("Try to use the vu decoder")
-		var err error
-		var v decoder.Vu
-		_, err = decoder.UnmarshalTV(data, &v)
-		if err != nil {
-			log.Fatalf("error: could not parse vu data: %v", err)
-		}
-		jsonData, err = json.Marshal(v)
-		if err != nil {
-			log.Fatalf("error: could not marshal vu data: %v", err)
-		}
+	jsonData, status, message := decodeFull(data, card)
+	if status != http.StatusOK {
+		http.Error(w, message, status)
+		return
 	}
 
 	log.Println("Sending response")
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(jsonData)
+}
+
+// decodeFull runs the full decoder and reports any failure as an HTTP status
+// instead of terminating the process.
+//
+//   - the file cannot be parsed -> 422 Unprocessable Entity. The request was
+//     well formed, the file is not. Retrying will not help.
+//   - the result cannot be marshalled -> 500. That is a bug in this service,
+//     not a bad file.
+func decodeFull(data []byte, card bool) (jsonData []byte, status int, message string) {
+	// A truncated buffer can make the parsers panic on a slice bound rather than
+	// return an error. net/http would recover that per connection and reply
+	// nothing at all, so the caller could not tell a corrupt file from a service
+	// that is down. Turn it into the same 422 as a reported parse error.
+	defer func() {
+		if rec := recover(); rec != nil {
+			log.Printf("error: panic while decoding (card=%t): %v", card, rec)
+			jsonData, status, message = nil, http.StatusUnprocessableEntity, "Could not parse file"
+		}
+	}()
+
+	if card {
+		log.Printf("Try to use the card decoder")
+		var c decoder.Card
+		if _, err := decoder.UnmarshalTLV(data, &c); err != nil {
+			log.Printf("error: could not parse card: %v", err)
+			return nil, http.StatusUnprocessableEntity, "Could not parse card"
+		}
+		out, err := json.Marshal(c)
+		if err != nil {
+			log.Printf("error: could not marshal card: %v", err)
+			return nil, http.StatusInternalServerError, "Could not marshal card"
+		}
+		return out, http.StatusOK, ""
+	}
+
+	log.Printf("Try to use the vu decoder")
+	var v decoder.Vu
+	if _, err := decoder.UnmarshalTV(data, &v); err != nil {
+		log.Printf("error: could not parse vu data: %v", err)
+		return nil, http.StatusUnprocessableEntity, "Could not parse vu data"
+	}
+	out, err := json.Marshal(v)
+	if err != nil {
+		log.Printf("error: could not marshal vu data: %v", err)
+		return nil, http.StatusInternalServerError, "Could not marshal vu data"
+	}
+	return out, http.StatusOK, ""
 }
 
 // infoHandler returns only the key identifiers of an uploaded file: the driver
@@ -123,30 +149,10 @@ func infoHandler(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("Received %s file with %d bytes", format, len(data))
 
-	var result map[string]string
-	if format == "card" {
-		cardNo, firstName, lastName, err := simple.CardExtractCardNumberAndDriverName(data)
-		if err != nil {
-			log.Printf("could not extract card info: %v", err)
-			http.Error(w, "Could not extract card info", http.StatusUnprocessableEntity)
-			return
-		}
-		result = map[string]string{
-			"cardNumber": cardNo,
-			"firstName":  firstName,
-			"lastName":   lastName,
-		}
-	} else {
-		idNo, regNo, err := simple.VuExtractIdentificationNumberAndRegistrationNumber(data)
-		if err != nil {
-			log.Printf("could not extract vehicle info: %v", err)
-			http.Error(w, "Could not extract vehicle info", http.StatusUnprocessableEntity)
-			return
-		}
-		result = map[string]string{
-			"registrationNumber":   regNo,
-			"identificationNumber": idNo,
-		}
+	result, status, message := extractInfo(data, format)
+	if status != http.StatusOK {
+		http.Error(w, message, status)
+		return
 	}
 
 	jsonData, err := json.Marshal(result)
@@ -159,6 +165,45 @@ func infoHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(jsonData)
+}
+
+// extractInfo pulls the key identifiers out of a file, reporting any failure as
+// an HTTP status.
+//
+// The panic guard matters here as much as in decodeFull: pkg/simple works by
+// matching bytes, so a truncated file can panic on a slice bound. Without the
+// guard net/http replies nothing, and a caller cannot tell "this file is
+// unreadable" from "the decoder is down".
+func extractInfo(data []byte, format string) (result map[string]string, status int, message string) {
+	defer func() {
+		if rec := recover(); rec != nil {
+			log.Printf("error: panic while extracting %s info: %v", format, rec)
+			result, status, message = nil, http.StatusUnprocessableEntity, "Could not extract info"
+		}
+	}()
+
+	if format == "card" {
+		cardNo, firstName, lastName, err := simple.CardExtractCardNumberAndDriverName(data)
+		if err != nil {
+			log.Printf("could not extract card info: %v", err)
+			return nil, http.StatusUnprocessableEntity, "Could not extract card info"
+		}
+		return map[string]string{
+			"cardNumber": cardNo,
+			"firstName":  firstName,
+			"lastName":   lastName,
+		}, http.StatusOK, ""
+	}
+
+	idNo, regNo, err := simple.VuExtractIdentificationNumberAndRegistrationNumber(data)
+	if err != nil {
+		log.Printf("could not extract vehicle info: %v", err)
+		return nil, http.StatusUnprocessableEntity, "Could not extract vehicle info"
+	}
+	return map[string]string{
+		"registrationNumber":   regNo,
+		"identificationNumber": idNo,
+	}, http.StatusOK, ""
 }
 
 func main() {
