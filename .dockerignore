@@ -1,0 +1,57 @@
+# Docker does not read .gitignore — everything excluded from the build context
+# must be listed here. Keep in sync with .gitignore where it matters.
+#
+# The gobuilder stage does `COPY ./ ./`, so anything left in the context lands in
+# that stage and any change to it invalidates the COPY layer, forcing
+# `go mod vendor` + `go build` to rerun. Excluding build-irrelevant paths keeps
+# the cache warm and the context upload small.
+#
+# Must NOT be excluded (the build needs them): cmd/, internal/, pkg/, scripts/,
+# go.mod, go.sum. In particular internal/pkg/certificates/ backs the
+# `//go:embed pks1/*.bin` and `pks2/*.bin` directives.
+
+# git metadata — unused by the build
+.git
+**/.gitignore
+.gitattributes
+
+# editor / OS cruft
+.idea/
+.vscode/
+**/.DS_Store
+
+# temporary folder
+tmp/
+
+# build folder
+build/
+
+# original asn1 definitions
+asn1/
+
+# vendored deps — the gobuilder stage runs `go mod vendor` itself
+vendor/
+
+# shell test fixtures and docs — not part of the Go build
+test/
+docs/
+*.md
+
+# Build tooling — describes how to build, never an input to what gets built.
+#
+# Excluding these is not what makes the build work; it is what keeps the cache
+# warm. Because the gobuilder stage does `COPY ./ ./`, that layer's cache key
+# covers every file left in the context — so editing any of these would
+# otherwise force a full `go mod vendor` + `go build`:
+#   - Makefile: IMAGE_TAG is bumped on every release
+#   - Dockerfile: edits below the COPY line (ENTRYPOINT, apt packages, ...)
+#     should not invalidate the Go build above it
+#
+# Safe to exclude the Dockerfile and .dockerignore themselves: the builder
+# receives both out-of-band, so an ignore rule cannot hide them from the build.
+# It only stops them being COPY'd into a stage.
+# https://docs.docker.com/build/concepts/context/
+**/Dockerfile
+.dockerignore
+Makefile
+build-binaries-prod.sh
